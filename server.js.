@@ -1,0 +1,118 @@
+const express = require("express");
+
+const app = express();
+app.use(express.json());
+
+const PORT = process.env.PORT || 3000;
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
+const API_VERSION = process.env.GRAPH_API_VERSION || "v23.0";
+
+app.get("/", (_req, res) => {
+  res.send("🍥 Naruto X is running!\nCreated by Toheed < 3 🦢");
+});
+
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", bot: "Naruto X" });
+});
+
+// Meta webhook verification
+app.get("/webhook", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (mode === "subscribe" &&
+      VERIFY_TOKEN &&
+      token === VERIFY_TOKEN) {
+    return res.status(200).send(String(challenge || ""));
+  }
+
+  return res.sendStatus(403);
+});
+
+function getReply(message) {
+  const cmd = message.trim().toLowerCase();
+
+  const replies = {
+    "/help":
+      "🍥 Naruto X Commands\n/help - Commands\n/naruto - Naruto mode\n/jutsu - Ninja technique\n/quote - Ninja quote\n/anime - Anime mode\n/about - Bot info\n\nCreated by Toheed < 3 🦢",
+
+    "/naruto":
+      "Believe it! 🍥 Never give up and never go back on your word!",
+
+    "/jutsu":
+      ["🔥 Shadow Clone Jutsu!",
+       "🌀 Rasengan!",
+       "⚡ Chidori!",
+       "🌪️ Rasenshuriken!"][Math.floor(Math.random() * 4)],
+
+    "/quote":
+      "A true ninja never abandons their friends. 🍥",
+
+    "/anime":
+      "🎌 Anime mode activated! Send /help for commands.",
+
+    "/about":
+      "🍥 Naruto X WhatsApp Bot\nCreated by Toheed < 3 🦢"
+  };
+
+  return replies[cmd] ||
+    "🍥 Hey ninja! I'm Naruto X. Send /help to see my commands.\nCreated by Toheed < 3 🦢";
+}
+
+async function sendReply(to, text) {
+  if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) {
+    console.error("Missing WhatsApp API environment variables.");
+    return;
+  }
+
+  const url =
+    `https://graph.facebook.com/${API_VERSION}/${PHONE_NUMBER_ID}/messages`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "text",
+      text: { body: text }
+    })
+  });
+
+  if (!response.ok) {
+    console.error("WhatsApp API error:", await response.text());
+  }
+}
+
+// Receive WhatsApp webhook events
+app.post("/webhook", (req, res) => {
+  res.sendStatus(200);
+
+  (async () => {
+    try {
+      for (const entry of req.body.entry || []) {
+        for (const change of entry.changes || []) {
+          for (const message of change.value?.messages || []) {
+            if (message.type !== "text" || !message.from) continue;
+
+            const incoming = message.text?.body || "";
+            const reply = getReply(incoming);
+            await sendReply(message.from, reply);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Webhook error:", error.message);
+    }
+  })();
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Naruto X listening on port ${PORT}`);
+});
