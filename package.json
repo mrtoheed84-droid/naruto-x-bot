@@ -1,0 +1,12 @@
+{
+  "name": "naruto-x-bot",
+  "version": "1.0.0",
+  "description": "Naruto X WhatsApp Bot - Created by Toheed < 3 🦢",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
